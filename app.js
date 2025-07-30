@@ -1,8 +1,15 @@
 import http from 'http';
+import { readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 
-const hostname = '127.0.0.1';
-const port = 3000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const configPath = path.join(__dirname, 'config.json');
+
+const config = JSON.parse(readFileSync(configPath, 'utf8'));
+const { port, hostname } = config;
 
 
 const server = http.createServer((req, res) => {
@@ -14,5 +21,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, hostname, () => {
     console.log(`Server gestartet unter http://${hostname}:${port}/`);
-})
+});
 
