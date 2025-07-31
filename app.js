@@ -1,7 +1,7 @@
-// app.js - Version 5: Einfacher POST /posts (ohne Body-Parsing)
+// app.js - Version 6: Asynchrones Laden und simulierte Verzögerung
 
 import http from 'http';
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises'; // Neu: readFile aus 'fs/promises'
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,8 +9,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const configPath = path.join(__dirname, 'config.json');
-const config = JSON.parse(readFileSync(configPath, 'utf8'));
-
+// Konfiguration asynchron laden
+const config = JSON.parse(await readFile(configPath, 'utf8'));
 const { port, hostname } = config;
 
 let posts = [
@@ -19,7 +19,11 @@ let posts = [
 ];
 let nextId = 3;
 
-const server = http.createServer((req, res) => {
+// Hilfsfunktion, die eine Verzögerung simuliert und ein Promise zurückgibt
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Die Callback-Funktion des Servers ist jetzt 'async'
+const server = http.createServer(async (req, res) => {
     console.log(`Anfrage erhalten: ${req.method} ${req.url}`);
 
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,6 +38,7 @@ const server = http.createServer((req, res) => {
 
     if (req.url === '/posts' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
+        await delay(500); // Simulierte Verzögerung
         res.end(JSON.stringify(posts));
     } else if (req.url.match(/^\/posts\/(\d+)$/) && req.method === 'GET') {
         const id = parseInt(req.url.split('/')[2]);
@@ -41,6 +46,7 @@ const server = http.createServer((req, res) => {
 
         if (post) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
+            await delay(300); // Simulierte Verzögerung
             res.end(JSON.stringify(post));
         } else {
             res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -57,8 +63,8 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, hostname, () => {
     console.log(`Server läuft unter http://${hostname}:${port}/`);
-    console.log(`Testen Sie: GET http://${hostname}:${port}/posts`);
-    console.log(`Testen Sie: GET http://${hostname}:${port}/posts/1`);
-    console.log(`Testen Sie: GET http://${hostname}:${port}/posts/99 (für 404 Fehler)`);
-    console.log(`Testen Sie: POST http://${hostname}:${port}/posts (mit curl oder Postman)`);
+    console.log('API-Endpunkte zum Testen:');
+    console.log(`GET http://${hostname}:${port}/posts`);
+    console.log(`GET http://${hostname}:${port}/posts/1`);
+    console.log(`POST http://${hostname}:${port}/posts (mit JSON-Body)`);
 });
