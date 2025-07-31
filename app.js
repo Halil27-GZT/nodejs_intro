@@ -1,4 +1,4 @@
-// app.js - Version 4: GET /posts/:id
+// app.js - Version 5: Einfacher POST /posts (ohne Body-Parsing)
 
 import http from 'http';
 import { readFileSync } from 'fs';
@@ -46,6 +46,9 @@ const server = http.createServer((req, res) => {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ message: 'Blogbeitrag nicht gefunden' }));
         }
+    } else if (req.url === '/posts' && req.method === 'POST') {
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Neuer Blogbeitrag empfangen (Body wird noch nicht verarbeitet)' }));
     } else {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Endpunkt nicht gefunden' }));
@@ -57,4 +60,5 @@ server.listen(port, hostname, () => {
     console.log(`Testen Sie: GET http://${hostname}:${port}/posts`);
     console.log(`Testen Sie: GET http://${hostname}:${port}/posts/1`);
     console.log(`Testen Sie: GET http://${hostname}:${port}/posts/99 (für 404 Fehler)`);
+    console.log(`Testen Sie: POST http://${hostname}:${port}/posts (mit curl oder Postman)`);
 });
