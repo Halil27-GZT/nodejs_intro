@@ -1,7 +1,7 @@
-// app.js - Version 6: Asynchrones Laden und simulierte Verzögerung
+// app.js - Version 7: Asynchrones Parsen des POST-Bodys
 
 import http from 'http';
-import { readFile } from 'fs/promises'; // Neu: readFile aus 'fs/promises'
+import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,7 +9,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const configPath = path.join(__dirname, 'config.json');
-// Konfiguration asynchron laden
 const config = JSON.parse(await readFile(configPath, 'utf8'));
 const { port, hostname } = config;
 
@@ -19,10 +18,24 @@ let posts = [
 ];
 let nextId = 3;
 
-// Hilfsfunktion, die eine Verzögerung simuliert und ein Promise zurückgibt
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Die Callback-Funktion des Servers ist jetzt 'async'
+// Hilfsfunktion zum asynchronen Sammeln des Request-Bodys
+function getRequestBody(req) {
+    return new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+        req.on('end', () => {
+            resolve(body);
+        });
+        req.on('error', err => {
+            reject(err);
+        });
+    });
+}
+
 const server = http.createServer(async (req, res) => {
     console.log(`Anfrage erhalten: ${req.method} ${req.url}`);
 
@@ -38,7 +51,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.url === '/posts' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        await delay(500); // Simulierte Verzögerung
+        await delay(500);
         res.end(JSON.stringify(posts));
     } else if (req.url.match(/^\/posts\/(\d+)$/) && req.method === 'GET') {
         const id = parseInt(req.url.split('/')[2]);
@@ -46,15 +59,35 @@ const server = http.createServer(async (req, res) => {
 
         if (post) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            await delay(300); // Simulierte Verzögerung
+            await delay(300);
             res.end(JSON.stringify(post));
         } else {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ message: 'Blogbeitrag nicht gefunden' }));
         }
     } else if (req.url === '/posts' && req.method === 'POST') {
-        res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: 'Neuer Blogbeitrag empfangen (Body wird noch nicht verarbeitet)' }));
+        try {
+            const body = await getRequestBody(req);
+            const newPost = JSON.parse(body);
+
+            if (!newPost.title || !newPost.content || !newPost.author) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: 'Fehlende Felder: title, content und author sind erforderlich.' }));
+                return;
+            }
+
+            newPost.id = nextId++;
+            newPost.date = new Date().toISOString().split('T')[0];
+            posts.push(newPost);
+
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            await delay(200);
+            res.end(JSON.stringify(newPost));
+        } catch (error) {
+            console.error('Fehler beim Parsen der Anfrage oder ungültiges JSON:', error);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'Ungültige Anfrage: JSON-Format erwartet oder Daten fehlen.' }));
+        }
     } else {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Endpunkt nicht gefunden' }));
